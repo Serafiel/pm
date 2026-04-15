@@ -1,3 +1,4 @@
+import logging
 import os
 import secrets
 from contextlib import asynccontextmanager
@@ -7,16 +8,29 @@ import database
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from openai import OpenAI
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(os.environ.get("STATIC_DIR", "/app/static"))
 
 # token → user_id
 _sessions: dict[str, int] = {}
 
+_ai_client: OpenAI | None = None
+
 
 @asynccontextmanager
 async def lifespan(app):
+    global _ai_client
+    api_key = os.environ.get("OPENROUTER_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENROUTER_API_KEY environment variable is not set")
+    _ai_client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=api_key,
+    )
     database.init_db()
     yield
 
@@ -129,6 +143,23 @@ async def move_card_route(
         raise HTTPException(status_code=404, detail="Column not found")
     database.move_card(card_id, card["column_id"], card["position"], body.column_id, body.position)
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# AI
+# ---------------------------------------------------------------------------
+
+@app.post("/api/ai/ping")
+async def ai_ping(user_id: int = Depends(get_current_user)):
+    try:
+        completion = _ai_client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[{"role": "user", "content": "What is 2+2?"}],
+        )
+        return {"response": completion.choices[0].message.content}
+    except Exception as e:
+        logger.error("OpenRouter request failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"AI request failed: {e}")
 
 
 # ---------------------------------------------------------------------------

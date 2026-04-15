@@ -13,6 +13,7 @@ def client(tmp_path, monkeypatch):
 
     monkeypatch.setenv("STATIC_DIR", str(static_path))
     monkeypatch.setenv("DB_PATH", str(tmp_path / "test.db"))
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
 
     import database
     import main
