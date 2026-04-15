@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/core";
 import { KanbanColumn } from "@/components/KanbanColumn";
 import { KanbanCardPreview } from "@/components/KanbanCardPreview";
-import { createId, findColumnId, initialData, moveCard, type BoardData } from "@/lib/kanban";
+import { moveCard, type BoardData } from "@/lib/kanban";
 
 const collisionDetection: CollisionDetection = (args) => {
   const pointerCollisions = pointerWithin(args);
@@ -27,100 +27,116 @@ const collisionDetection: CollisionDetection = (args) => {
 
 export const KanbanBoard = () => {
   const router = useRouter();
-  const [board, setBoard] = useState<BoardData>(() => initialData);
+  const [board, setBoard] = useState<BoardData | null>(null);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const renameTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const boardRef = useRef<BoardData | null>(null);
+  boardRef.current = board;
 
   useEffect(() => {
-    fetch("/api/auth/me").then((res) => {
-      if (!res.ok) router.push("/login");
-    });
+    fetch("/api/board")
+      .then((res) => {
+        if (res.status === 401) {
+          router.push("/login");
+          return null;
+        }
+        return res.json();
+      })
+      .then((data) => data && setBoard(data));
   }, [router]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 6 },
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
 
-  const cardsById = useMemo(() => board.cards, [board.cards]);
+  const cardsById = useMemo(() => board?.cards ?? {}, [board?.cards]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveCardId(event.active.id as string);
   };
 
-  // Moves the card across columns in real-time as you drag. Same-column
-  // reordering is deferred to handleDragEnd so we don't double-apply it.
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
     setBoard((prev) => {
-      const activeColumnId = findColumnId(prev.columns, active.id as string);
-      const overColumnId = findColumnId(prev.columns, over.id as string);
-      if (!activeColumnId || !overColumnId || activeColumnId === overColumnId) {
-        return prev;
-      }
+      if (!prev) return prev;
       return { ...prev, columns: moveCard(prev.columns, active.id as string, over.id as string) };
     });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
+    const { active } = event;
     setActiveCardId(null);
+    const currentBoard = boardRef.current;
+    if (!currentBoard) return;
 
-    if (!over || active.id === over.id) {
-      return;
+    const activeId = active.id as string;
+    const targetCol = currentBoard.columns.find((col) => col.cardIds.includes(activeId));
+
+    if (targetCol) {
+      fetch(`/api/board/cards/${activeId}/move`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          column_id: parseInt(targetCol.id),
+          position: targetCol.cardIds.indexOf(activeId),
+        }),
+      });
     }
-
-    setBoard((prev) => ({
-      ...prev,
-      columns: moveCard(prev.columns, active.id as string, over.id as string),
-    }));
   };
 
   const handleRenameColumn = (columnId: string, title: string) => {
-    setBoard((prev) => ({
-      ...prev,
-      columns: prev.columns.map((column) =>
-        column.id === columnId ? { ...column, title } : column
-      ),
-    }));
+    setBoard((prev) =>
+      prev
+        ? { ...prev, columns: prev.columns.map((col) => (col.id === columnId ? { ...col, title } : col)) }
+        : prev
+    );
+    if (renameTimeoutRef.current) clearTimeout(renameTimeoutRef.current);
+    renameTimeoutRef.current = setTimeout(() => {
+      fetch(`/api/board/columns/${columnId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+    }, 600);
   };
 
-  const handleAddCard = (columnId: string, title: string, details: string) => {
-    const id = createId("card");
-    setBoard((prev) => ({
-      ...prev,
-      cards: {
-        ...prev.cards,
-        [id]: { id, title, details: details || "No details yet." },
-      },
-      columns: prev.columns.map((column) =>
-        column.id === columnId
-          ? { ...column, cardIds: [...column.cardIds, id] }
-          : column
-      ),
-    }));
-  };
-
-  const handleDeleteCard = (columnId: string, cardId: string) => {
+  const handleAddCard = async (columnId: string, title: string, details: string) => {
+    const res = await fetch("/api/board/cards", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ column_id: parseInt(columnId), title, details }),
+    });
+    if (!res.ok) return;
+    const card = await res.json();
     setBoard((prev) => {
+      if (!prev) return prev;
       return {
         ...prev,
-        cards: Object.fromEntries(
-          Object.entries(prev.cards).filter(([id]) => id !== cardId)
-        ),
-        columns: prev.columns.map((column) =>
-          column.id === columnId
-            ? {
-                ...column,
-                cardIds: column.cardIds.filter((id) => id !== cardId),
-              }
-            : column
+        cards: { ...prev.cards, [card.id]: card },
+        columns: prev.columns.map((col) =>
+          col.id === columnId ? { ...col, cardIds: [...col.cardIds, card.id] } : col
         ),
       };
     });
   };
+
+  const handleDeleteCard = (columnId: string, cardId: string) => {
+    setBoard((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        cards: Object.fromEntries(Object.entries(prev.cards).filter(([id]) => id !== cardId)),
+        columns: prev.columns.map((col) =>
+          col.id === columnId ? { ...col, cardIds: col.cardIds.filter((id) => id !== cardId) } : col
+        ),
+      };
+    });
+    fetch(`/api/board/cards/${cardId}`, { method: "DELETE" });
+  };
+
+  if (!board) return null;
 
   const activeCard = activeCardId ? cardsById[activeCardId] : null;
 

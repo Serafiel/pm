@@ -123,7 +123,7 @@ Add API routes to read and mutate the Kanban for the authenticated user. Databas
 
 ---
 
-## Part 7: Frontend + Backend Integration
+## Part 7: Frontend + Backend Integration ✅
 
 Have the frontend use the real backend API instead of `initialData`. The board is now fully persistent.
 

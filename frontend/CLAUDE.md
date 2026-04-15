@@ -24,6 +24,11 @@ npm run test:all         # Unit + E2E
 
 **Drag-and-drop**: `@dnd-kit/core` wraps the board; `@dnd-kit/sortable` wraps each column's card list. `moveCard()` in `src/lib/kanban.ts` handles three cases: reorder within column, move to another column (insert at position), drop onto empty column (append).
 
+Critical constraints — do not break these:
+- `handleDragOver` must handle ALL moves (same-column AND cross-column). Do NOT skip same-column moves with an early return — that breaks insertion-position preview within a column.
+- `handleDragEnd` must NOT call `moveCard` again. The board is already in its final state from `handleDragOver`. `handleDragEnd` only reads the final position (via `boardRef.current`) and fires the API call.
+- `boardRef` (a `useRef` that mirrors `board` state) exists to give `handleDragEnd` access to the current board without a stale closure. Do not remove it.
+
 **Component responsibilities**:
 - `KanbanBoard` — state owner, DnD context, event handlers
 - `KanbanColumn` — droppable area, renders its cards via `SortableContext`, inline-editable title
