@@ -4,7 +4,16 @@
       "Bash(cmd /c \"echo test from batch\")",
       "Bash(bash scripts/start.sh)",
       "Bash(curl -s http://localhost:8000/)",
-      "Bash(curl -s http://localhost:8000/api/ping)"
+      "Bash(curl -s http://localhost:8000/api/ping)",
+      "Bash(npm run:*)",
+      "Bash(npm install:*)",
+      "Bash(npx vitest:*)",
+      "Bash(uv sync:*)",
+      "Bash(uv run:*)",
+      "Bash(where uv:*)",
+      "Bash(python -m pip show uv)",
+      "Bash(python -m uv sync --dev --project \"C:\\\\Users\\\\rafaa\\\\Projects\\\\pm\\\\backend\")",
+      "Bash(python -m uv run --project \"C:\\\\Users\\\\rafaa\\\\Projects\\\\pm\\\\backend\" pytest)"
     ]
   }
 }

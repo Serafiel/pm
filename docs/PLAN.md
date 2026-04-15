@@ -32,19 +32,19 @@ Set up the Docker infrastructure, FastAPI backend, and start/stop scripts. At th
 
 ---
 
-## Part 3: Add in Frontend
+## Part 3: Add in Frontend ✅
 
 Statically build the Next.js frontend and serve it from FastAPI at `/`. The Kanban board demo is visible in the browser.
 
 ### Steps
 
-- [ ] Update the Next.js build to output a static export (`output: 'export'` in `next.config.ts`)
-- [ ] Update `Dockerfile` to:
+- [x] Update the Next.js build to output a static export (`output: 'export'` in `next.config.ts`)
+- [x] Update `Dockerfile` to:
   - Install Node and build the frontend (`npm ci && npm run build`)
   - Copy the static export into the backend's static file directory
-- [ ] Update `backend/main.py` to mount the static files and serve `index.html` as the catch-all route
-- [ ] Confirm all existing frontend unit and E2E tests still pass (run inside Docker build or CI step)
-- [ ] Add backend integration tests confirming static files are served correctly
+- [x] Update `backend/main.py` to mount the static files and serve `index.html` as the catch-all route
+- [x] Confirm all existing frontend unit and E2E tests still pass (run inside Docker build or CI step)
+- [x] Add backend integration tests confirming static files are served correctly
 
 ### Tests & Success Criteria
 

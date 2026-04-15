@@ -1,7 +1,9 @@
 .env
-frontend/
 docs/
 scripts/
 .git/
 **/__pycache__/
 **/*.pyc
+frontend/node_modules/
+frontend/.next/
+frontend/out/
