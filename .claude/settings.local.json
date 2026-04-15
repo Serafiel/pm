@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd /c \"echo test from batch\")",
+      "Bash(bash scripts/start.sh)",
+      "Bash(curl -s http://localhost:8000/)",
+      "Bash(curl -s http://localhost:8000/api/ping)"
+    ]
+  }
+}
