@@ -98,7 +98,7 @@ Design and document the SQLite schema for the Kanban. Get user sign-off before p
 
 ---
 
-## Part 6: Backend API
+## Part 6: Backend API ✅
 
 Add API routes to read and mutate the Kanban for the authenticated user. Database is created automatically on first run.
 

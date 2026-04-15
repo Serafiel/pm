@@ -12,7 +12,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
+if not exist "%PROJECT_ROOT%\data" mkdir "%PROJECT_ROOT%\data"
+
 echo Starting...
-docker run -d --rm --name pm-app -p 8000:8000 pm-app
+docker run -d --rm --name pm-app -p 8000:8000 -v "%PROJECT_ROOT%\data:/app/data" pm-app
 
 echo Running at http://localhost:8000

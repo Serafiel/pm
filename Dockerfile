@@ -18,6 +18,7 @@ RUN uv sync --no-dev
 
 COPY backend/ .
 COPY --from=frontend-build /frontend/out/ ./static/
+RUN mkdir -p /app/data
 
 EXPOSE 8000
 CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
