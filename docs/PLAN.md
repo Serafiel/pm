@@ -55,18 +55,18 @@ Statically build the Next.js frontend and serve it from FastAPI at `/`. The Kanb
 
 ---
 
-## Part 4: Fake User Sign-In
+## Part 4: Fake User Sign-In ✅
 
 Add a login gate: users must sign in with `user` / `password` to see the Kanban board. A logout option is available.
 
 ### Steps
 
-- [ ] Add `POST /api/auth/login` endpoint accepting `{username, password}`, returning a session token (simple signed cookie or JWT — keep it minimal)
-- [ ] Add `POST /api/auth/logout` endpoint that clears the session
-- [ ] Add `GET /api/auth/me` endpoint that returns the current user or 401
-- [ ] Add a login page in the Next.js frontend (`src/app/login/page.tsx`)
-- [ ] Gate the Kanban board: if `/api/auth/me` returns 401, redirect to `/login`
-- [ ] Add a logout button visible on the board
+- [x] Add `POST /api/auth/login` endpoint accepting `{username, password}`, returning a session token (simple signed cookie or JWT — keep it minimal)
+- [x] Add `POST /api/auth/logout` endpoint that clears the session
+- [x] Add `GET /api/auth/me` endpoint that returns the current user or 401
+- [x] Add a login page in the Next.js frontend (`src/app/login/page.tsx`)
+- [x] Gate the Kanban board: if `/api/auth/me` returns 401, redirect to `/login`
+- [x] Add a logout button visible on the board
 
 ### Tests & Success Criteria
 
@@ -74,7 +74,7 @@ Add a login gate: users must sign in with `user` / `password` to see the Kanban 
 - [ ] Logging in with wrong credentials shows an error, does not redirect
 - [ ] Logging in with `user` / `password` redirects to `/` and shows the board
 - [ ] Clicking logout clears the session and redirects to `/login`
-- [ ] Backend unit tests cover login, logout, and me endpoints
+- [x] Backend unit tests cover login, logout, and me endpoints
 - [ ] Frontend E2E tests cover the full login → board → logout flow
 
 ---

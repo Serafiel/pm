@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -8,16 +9,32 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  pointerWithin,
+  type CollisionDetection,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { KanbanColumn } from "@/components/KanbanColumn";
 import { KanbanCardPreview } from "@/components/KanbanCardPreview";
-import { createId, initialData, moveCard, type BoardData } from "@/lib/kanban";
+import { createId, findColumnId, initialData, moveCard, type BoardData } from "@/lib/kanban";
+
+const collisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) return pointerCollisions;
+  return closestCorners(args);
+};
 
 export const KanbanBoard = () => {
+  const router = useRouter();
   const [board, setBoard] = useState<BoardData>(() => initialData);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me").then((res) => {
+      if (!res.ok) router.push("/login");
+    });
+  }, [router]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -29,6 +46,22 @@ export const KanbanBoard = () => {
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveCardId(event.active.id as string);
+  };
+
+  // Moves the card across columns in real-time as you drag. Same-column
+  // reordering is deferred to handleDragEnd so we don't double-apply it.
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setBoard((prev) => {
+      const activeColumnId = findColumnId(prev.columns, active.id as string);
+      const overColumnId = findColumnId(prev.columns, over.id as string);
+      if (!activeColumnId || !overColumnId || activeColumnId === overColumnId) {
+        return prev;
+      }
+      return { ...prev, columns: moveCard(prev.columns, active.id as string, over.id as string) };
+    });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -111,13 +144,24 @@ export const KanbanBoard = () => {
                 and capture quick notes without getting buried in settings.
               </p>
             </div>
-            <div className="rounded-2xl border border-[var(--stroke)] bg-[var(--surface)] px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[var(--gray-text)]">
-                Focus
-              </p>
-              <p className="mt-2 text-lg font-semibold text-[var(--primary-blue)]">
-                One board. Five columns. Zero clutter.
-              </p>
+            <div className="flex items-start gap-4">
+              <div className="rounded-2xl border border-[var(--stroke)] bg-[var(--surface)] px-5 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[var(--gray-text)]">
+                  Focus
+                </p>
+                <p className="mt-2 text-lg font-semibold text-[var(--primary-blue)]">
+                  One board. Five columns. Zero clutter.
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  await fetch("/api/auth/logout", { method: "POST" });
+                  router.push("/login");
+                }}
+                className="rounded-xl border border-[var(--stroke)] bg-[var(--surface)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gray-text)] transition-colors hover:border-[var(--navy-dark)] hover:text-[var(--navy-dark)]"
+              >
+                Sign out
+              </button>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-4">
@@ -135,8 +179,9 @@ export const KanbanBoard = () => {
 
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={collisionDetection}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
           <section className="grid gap-6 lg:grid-cols-5">
