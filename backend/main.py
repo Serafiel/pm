@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import secrets
@@ -8,6 +9,14 @@ import database
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from models import (
+    AIChatResponse,
+    CardCreateOp,
+    CardDeleteOp,
+    CardMoveOp,
+    ChatRequest,
+    ColumnRenameOp,
+)
 from openai import OpenAI
 from pydantic import BaseModel
 
@@ -148,6 +157,83 @@ async def move_card_route(
 # ---------------------------------------------------------------------------
 # AI
 # ---------------------------------------------------------------------------
+
+def _apply_board_update(operations: list, user_id: int) -> None:
+    for op in operations:
+        if isinstance(op, CardCreateOp):
+            col_id = int(op.column_id)
+            if not database.get_column_for_user(col_id, user_id):
+                raise HTTPException(status_code=404, detail=f"Column {op.column_id} not found")
+            database.create_card(col_id, op.title, op.details)
+        elif isinstance(op, CardMoveOp):
+            card_id = int(op.card_id)
+            card = database.get_card_for_user(card_id, user_id)
+            if not card:
+                raise HTTPException(status_code=404, detail=f"Card {op.card_id} not found")
+            col_id = int(op.column_id)
+            if not database.get_column_for_user(col_id, user_id):
+                raise HTTPException(status_code=404, detail=f"Column {op.column_id} not found")
+            database.move_card(card_id, card["column_id"], card["position"], col_id, op.position)
+        elif isinstance(op, CardDeleteOp):
+            card_id = int(op.card_id)
+            card = database.get_card_for_user(card_id, user_id)
+            if not card:
+                raise HTTPException(status_code=404, detail=f"Card {op.card_id} not found")
+            database.delete_card(card_id, card["column_id"], card["position"])
+        elif isinstance(op, ColumnRenameOp):
+            col_id = int(op.column_id)
+            if not database.get_column_for_user(col_id, user_id):
+                raise HTTPException(status_code=404, detail=f"Column {op.column_id} not found")
+            database.rename_column(col_id, op.title)
+
+
+@app.post("/api/ai/chat")
+async def ai_chat(body: ChatRequest, user_id: int = Depends(get_current_user)):
+    board = database.get_board_data(user_id)
+    board_json = json.dumps(board, indent=2)
+
+    system_prompt = f"""You are a project management assistant. The user's current Kanban board is:
+
+{board_json}
+
+You may optionally include board mutations in board_update. Available operations:
+- create: add a card (column_id, title, details)
+- move: move a card (card_id, column_id, position — 0-based index within the target column)
+- delete: remove a card (card_id)
+- rename_column: rename a column (column_id, title)
+
+Only include board_update when the user explicitly asks you to change the board. Set it to null otherwise.
+Positions are 0-based. Use the board JSON above to reason about current card order and exact target positions."""
+
+    messages = [{"role": "system", "content": system_prompt}]
+    for msg in body.history:
+        messages.append({"role": msg.role, "content": msg.content})
+    messages.append({"role": "user", "content": body.message})
+
+    try:
+        completion = _ai_client.beta.chat.completions.parse(
+            model="openai/gpt-oss-120b",
+            messages=messages,
+            response_format=AIChatResponse,
+        )
+        result = completion.choices[0].message.parsed
+    except Exception as e:
+        logger.error("OpenRouter request failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"AI request failed: {e}")
+
+    board_updated = False
+    if result.board_update:
+        try:
+            _apply_board_update(result.board_update, user_id)
+            board_updated = True
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("Failed to apply board update: %s", e)
+            raise HTTPException(status_code=500, detail=f"Failed to apply board update: {e}")
+
+    return {"reply": result.reply, "board_updated": board_updated}
+
 
 @app.post("/api/ai/ping")
 async def ai_ping(user_id: int = Depends(get_current_user)):

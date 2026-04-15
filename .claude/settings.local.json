@@ -14,7 +14,14 @@
       "Bash(python -m pip show uv)",
       "Bash(python -m uv sync --dev --project \"C:\\\\Users\\\\rafaa\\\\Projects\\\\pm\\\\backend\")",
       "Bash(python -m uv run --project \"C:\\\\Users\\\\rafaa\\\\Projects\\\\pm\\\\backend\" pytest)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_ai.py -v)",
+      "Bash(.venv/Scripts/python -c \"import openai; print\\(openai.__version__\\)\")",
+      "Read(//c/Users/rafaa/AppData/Roaming/uv/**)",
+      "Read(//c/Users/rafaa/.local/bin/**)",
+      "Read(//c/Users/rafaa/**)",
+      "Bash(/c/Users/rafaa/AppData/Roaming/Python/Python314/Scripts/uv.exe sync *)",
+      "Bash(.venv/Scripts/python -m pytest -v)"
     ]
   }
 }
